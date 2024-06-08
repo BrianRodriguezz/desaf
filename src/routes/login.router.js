@@ -1,17 +1,19 @@
 const { Router } = require('express')
 const userVali = require('../middleware/userValidation')
 
+const passport = require('passport')
+
 const MongoUserManager = require('../dao/mongo/MongoUserManager')
 const MongoProductManager = require('../dao/mongo/mongoProductManager')
 
 const Bcrypt = require('../ultis/bcrypt')
-//const { hashPassword, isValidPassword } = require('../ultis/bcrypt')
-const products = require('../models/products.js')
 
 const router = Router()
 
 const mongoUserManager = new MongoUserManager
 const mongoProductManager = new MongoProductManager
+
+const passport = require(passport)
 
 router.get('/', (req, res) => {
     res.render('login')
@@ -21,7 +23,18 @@ router.get('/register', (req, res) => {
     res.render('register')
 })
 
-router.post('/login', async (req, res) => {
+router.post('/login', passport.authenticate('login', { failureRedirect: '/api/sessions/faillogin' }), (req, res) => {
+    console.log(req.body)
+    req.session.user = {
+        id: req.user._id,
+        email: req.user.email
+    }
+
+    // no es necesario validar el login aquí, ya lo hace passport!
+    res.redirect('/')
+})
+
+/*router.post('/login', async (req, res) => {
     const { username, password } = req.body
     const { limit = 10, page = 1, query } = req.query
     let filtro = {}
@@ -59,7 +72,12 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.log(error)
     }
+})*/
+
+router.get('/faillogin', (req, res) => {
+    res.send({ status: 'error', message: 'Login failed!' })
 })
+
 
 router.post('/logout', async (req, res) => {
     try {
@@ -72,7 +90,26 @@ router.post('/logout', async (req, res) => {
     }
 })
 
-router.post('/register', async (req, res) => {
+
+// agregamos el middleware de passport para el register
+router.post('/register', passport.authenticate('register', { failureRedirect: '/api/sessions/failregister' }), (req, res) => {
+    console.log(req.body)
+    // no es necesario registrar el usuario aquí, ya lo hacemos en la estrategia!
+    res.redirect('/')
+})
+
+router.get('/failregister', (req, res) => {
+    res.send({ status: 'error', message: 'Register failed!' })
+})
+
+router.get('/github', passport.authenticate('github', { scope: ['user:email'] }), (req, res) => { })
+
+router.get('/githubcallback', passport.authenticate('github', { failureRedirect: '/' }), (req, res) => {
+    req.session.user = { _id: req.user._id }
+    res.redirect('/')
+})
+
+/*router.post('/register', async (req, res) => {
     const { first_name, last_name, age, roll = 'user', email, password } = req.body
     let user = {
         first_name,
@@ -95,6 +132,6 @@ router.post('/register', async (req, res) => {
     } catch (error) {
         console.log(error);
     }
-})
+})*/
 
 module.exports = router
